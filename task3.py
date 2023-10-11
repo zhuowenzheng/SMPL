@@ -5,7 +5,48 @@ import os
 from scipy.spatial.transform import Rotation as R
 from task1 import save_obj
 from task1 import load_obj
+class RelativeBoneTransform:
+    def __init__(self,bone_count, joint_index, parent_index, rotation_order, joint_name):
+        self.bone_count = bone_count
+        self.joint_index = joint_index
+        self.parent_index = parent_index
+        self.rotation_order = rotation_order
+        self.joint_name = joint_name
+        self.relative_transform = np.eye(4)
+        self.absolute_transform = np.eye(4)
 
+
+def load_hierarchy(file_path):
+    bones = []
+
+    try:
+        with open(file_path, 'r') as file:
+            # Skip the first three lines starting with '#'
+            for _ in range(3):
+                next(file)
+
+            bone_count = int(next(file).strip())  # Read the bone count from the fourth line
+
+            for line in file:
+                parts = line.strip().split()
+                if len(parts) == 4:  # Ensure each line has 4 components
+                    joint_index, parent_index, rotation_order, joint_name = map(int, parts[:2]) + parts[2:]
+                    bone = RelativeBoneTransform(joint_index, parent_index, rotation_order, joint_name)
+                    bones.append(bone)
+                else:
+                    print(f"Malformed line: {line}")
+        return bone_count, bones  # Return both bone count and bones list
+    except FileNotFoundError:
+        print(f"Cannot read {file_path}")
+        return None, None  # Return None for both bone count and bones list in case of an error
+
+def calculate_absolute_transforms(bones):
+    for bone in bones:
+        if bone.parent_index == -1:  # This is the root bone
+            bone.absolute_transform = bone.relative_transform
+        else:
+            parent_bone = bones[bone.parent_index]
+            bone.absolute_transform = np.dot(parent_bone.absolute_transform, bone.relative_transform)
 
 class BoneTransform:
     def __init__(self, qx, qy, qz, qw, px, py, pz):
@@ -17,9 +58,9 @@ class BoneTransform:
         self.py = py
         self.pz = pz
 
-
-def load_skeleton(file_name):
+def load_skeleton(file_name, hierarchy):
     filename = os.path.join(DATA_DIR, file_name)
+    bone_count, bones = hierarchy
     _translation = np.array([0, 0, 0])  # Initialize translation here
     try:
         with open(filename, 'r') as file:
@@ -67,7 +108,6 @@ def load_skeleton(file_name):
         print(f"Cannot read {filename}")
 
     return _bone_matrices, _bone_matrices_inv
-
 
 def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count=1, bone_count=24):
     # Creating deep copies to ensure the original matrices are not modified
