@@ -1,4 +1,3 @@
-
 import copy
 import numpy as np
 import os
@@ -8,6 +7,8 @@ from task1 import load_obj
 from MatrixStack import MatrixStack as m_stack
 
 matrix_stack = m_stack()
+
+
 class Bone:
     def __init__(self, joint_index, parent_index, rotation_order, joint_name):
         self.joint_index = joint_index
@@ -16,6 +17,7 @@ class Bone:
         self.joint_name = joint_name
         self.T = np.eye(4)
         self.R = np.eye(4)
+
 
 class BoneTransform:
     def __init__(self, qx, qy, qz, qw, px, py, pz):
@@ -46,7 +48,10 @@ def load_hierarchy(file_path):
         print(f"Cannot read {file_path}")
         return None
 
-# print the hierarchy map
+
+# Load hierarchy data
+hierarchy_map = load_hierarchy('../input/smpl_hierarchy.txt')
+
 
 def load_skeleton(file_name):
     filename = os.path.join(DATA_DIR, file_name)
@@ -83,65 +88,63 @@ def load_skeleton(file_name):
                     M[:3, :3] = _rotation.as_matrix()
                     M[:, 3] = np.append(_translation, 1)
                     _bone_matrices_inv[frame][bone] = np.linalg.inv(M)
-
-                    M = np.eye(4)
-                    M[:3, :3] = _rotation.as_matrix()
-                    M[:, 3] = np.append(_translation, 1)
                     _bone_matrices[frame][bone] = M
-
+                    # if root, absolute transformation = relative transformation
+                    if hierarchy_map[bone].parent_index == -1:
+                        hierarchy_map[bone].T = _bone_matrices[frame][bone]
+                    else:
+                        # absolute translation = child translation - parent translation
+                        hierarchy_map[bone].T = _bone_matrices[frame][bone] - _bone_matrices[frame][
+                            hierarchy_map[bone].parent_index] + np.eye(4)
+                    print("T: ", hierarchy_map[bone].joint_index)
+                    print(hierarchy_map[bone].T)
                     if bone == 16:  # Check if the bone is the left shoulder at index 16
+                        # if 16, apply the rotation, set R = rotation matrix
+                        matrix_stack.push(np.eye(4))
+                        q = [0.9239, 0, 0, -0.3827]
+                        matrix_stack.rotate(q)
+                        hierarchy_map[bone].R = matrix_stack.top()
+                    else:
+                        # if not 16, apply the rotation, set R = np.eye(4)
+                        hierarchy_map[bone].R = np.eye(4)
 
-                        # Push the current bone matrix onto the matrix stack
-                        matrix_stack.push(_bone_matrices[frame][bone])
-                        print("before")
-                        print(_bone_matrices[frame][bone])
-                        # Apply the rotation using the provided quaternion(w, x, y, z)
-                        quaternion = [0.9239, 0, 0, -0.3827]
-                        matrix_stack.rotate(quaternion)
-
-                        # Update the bone matrix with the transformed matrix from the matrix stack
-                        _bone_matrices[frame][bone] = matrix_stack.top()
-                        print("after")
-                        print(_bone_matrices[frame][bone])
-                        # Pop the current matrix off the matrix stack
-                        matrix_stack.pop()
-
-                        print("bone " + str(bone) + " rotated")
-                transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv)
-
+                    print("R: ", hierarchy_map[bone].joint_index)
+                    print(hierarchy_map[bone].R)
+                update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, 16)
+                print("M: ", hierarchy_map[16].joint_index)
+                print(_bone_matrices[frame][16])
     except FileNotFoundError:
         print(f"Cannot read {filename}")
 
     return _bone_matrices, _bone_matrices_inv
 
 
-def transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, parent_bone_index=16):
+def update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, child_bone_index):
+    matrix_stack.push(np.eye(4))
+
+    # Traverse up the hierarchy from the child bone to the root (or another ancestor)
+    current_bone_index = child_bone_index
+    while current_bone_index != -1:
+        current_bone = hierarchy_map[current_bone_index]
+        # Multiply transformations according to the current bone's matrices
+        matrix_stack.multiply(current_bone.T)
+        matrix_stack.multiply(current_bone.R)
+        print("current_bone_index: ", current_bone_index)
+        # Move up the hierarchy
+        current_bone_index = current_bone.parent_index
+        print("current_bone_index moved to: ", current_bone_index)
+    # At this point, matrix_stack.top() contains the accumulated transformation for the child bone
+    _bone_matrices[frame][child_bone_index] = matrix_stack.top()
+    print("Matrix", str(child_bone_index), " is set to: ", _bone_matrices[frame][child_bone_index])
+
+    # Continue traversal for the children of the current bone
     for key, value in hierarchy_map.items():
-        if value.parent_index == parent_bone_index:
+        if value.parent_index == child_bone_index:
+            update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, key)
 
-            # Push the current bone matrix onto the stack
-            matrix_stack.push(_bone_matrices[frame][key])
+    # Pop the accumulated transformation before moving to the next sibling bone
+    matrix_stack.pop()
 
-            # Apply the rotation
-            q = [0.9239, 0, 0, -0.3827]
-            matrix_stack.rotate(q)
-
-            # Update the bone matrix with the modified matrix from the stack
-            _bone_matrices[frame][key] = matrix_stack.top()
-
-            print("bone " + str(value.joint_index) + " rotated")
-            print("after ", key)
-            print(_bone_matrices[frame][key])
-            # Recursively call transform_child on the current bone to transform its children
-            transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv,
-                            parent_bone_index=value.joint_index)
-
-            # Pop the current bone matrix off the stack, reverting back to the parent's state
-            matrix_stack.pop()
-
-
-# Load hierarchy data
-hierarchy_map = load_hierarchy('../input/smpl_hierarchy.txt')
 
 # Compute absolute transforms
 # compute_absolute_transforms(hierarchy_map)
@@ -152,7 +155,7 @@ def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count
     new_bone_matrices = copy.deepcopy(base_bone_matrices)
     new_bone_matrices_inv = copy.deepcopy(base_bone_matrices_inv)
 
-    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i),)[0] for i in range(1, 11)]
+    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i), )[0] for i in range(1, 11)]
     b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[1] for i in range(1, 11)]
 
     for frame in range(frame_count):
@@ -283,5 +286,3 @@ tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) fo
 save_obj('../output4/frame000.obj', tuple_vertices_b0)
 save_obj('../output4/frame001.obj', tuple_vertices_b1)
 save_obj('../output4/frame002.obj', tuple_vertices_b2)
-
-

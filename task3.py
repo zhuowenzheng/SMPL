@@ -13,7 +13,8 @@ class Bone:
         self.parent_index = parent_index
         self.rotation_order = rotation_order
         self.joint_name = joint_name
-
+        self.T = np.eye(4)
+        self.R = np.eye(4)
 
 
 class BoneTransform:
@@ -121,7 +122,7 @@ def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count
     new_bone_matrices = copy.deepcopy(base_bone_matrices)
     new_bone_matrices_inv = copy.deepcopy(base_bone_matrices_inv)
 
-    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i),)[0] for i in range(1, 11)]
+    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[0] for i in range(1, 11)]
     b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[1] for i in range(1, 11)]
 
     for frame in range(frame_count):
