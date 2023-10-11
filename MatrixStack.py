@@ -44,32 +44,19 @@ class MatrixStack:
         ])
         self.multiply(scaling)
 
-    def rotate(self, angle, x, y, z):
-        # Rotation using the Rodrigues' rotation formula
-        rad_angle = np.radians(angle)
-        axis = np.array([x, y, z])
-        axis = axis / np.linalg.norm(axis)
-        cosA = np.cos(rad_angle)
-        sinA = np.sin(rad_angle)
-        rotation = np.eye(4)
-        rotation[:3, :3] = cosA * np.eye(3) + (1 - cosA) * np.outer(axis, axis) + sinA * np.array([
-            [0, -axis[2], axis[1]],
-            [axis[2], 0, -axis[0]],
-            [-axis[1], axis[0], 0]
+    def quaternion_to_matrix(self, q):
+        w, x, y, z = q
+        return np.array([
+            [1 - 2 * (y ** 2 + z ** 2), 2 * (x * y - z * w), 2 * (x * z + y * w), 0],
+            [2 * (x * y + z * w), 1 - 2 * (x ** 2 + z ** 2), 2 * (y * z - x * w), 0],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x ** 2 + y ** 2), 0],
+            [0, 0, 0, 1]
         ])
-        self.multiply(rotation)
+
+    def rotate(self, q):
+        rotation_matrix = self.quaternion_to_matrix(q)
+        self.multiply(rotation_matrix)
 
 
-# Example usage:
-stack = MatrixStack()
 
-stack.push()  # Push the identity matrix
-stack.translate(1, 2, 3)
-print(stack.top())
 
-stack.push()  # Push the current matrix
-stack.rotate(45, 0, 1, 0)
-print(stack.top())
-
-stack.pop()
-print(stack.top())
