@@ -96,8 +96,7 @@ def load_skeleton(file_name):
                         # absolute translation = child translation - parent translation
                         hierarchy_map[bone].T = _bone_matrices[frame][bone] - _bone_matrices[frame][
                             hierarchy_map[bone].parent_index] + np.eye(4)
-                    print("T: ", hierarchy_map[bone].joint_index)
-                    print(hierarchy_map[bone].T)
+
                     if bone == 16:  # Check if the bone is the left shoulder at index 16
                         # if 16, apply the rotation, set R = rotation matrix
                         matrix_stack.push(np.eye(4))
@@ -108,35 +107,38 @@ def load_skeleton(file_name):
                         # if not 16, apply the rotation, set R = np.eye(4)
                         hierarchy_map[bone].R = np.eye(4)
 
-                    print("R: ", hierarchy_map[bone].joint_index)
-                    print(hierarchy_map[bone].R)
-                update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, 16)
-                print("M: ", hierarchy_map[16].joint_index)
-                print(_bone_matrices[frame][16])
+                update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, 0)
+
     except FileNotFoundError:
         print(f"Cannot read {filename}")
-
+    print("Loading Complete.")
     return _bone_matrices, _bone_matrices_inv
+
+
+def accumulate_matrix_to_stack(hierarchy_map, bone_index, matrix_stack):
+    """Recursively push matrices to the stack starting from the root to the given bone."""
+    if bone_index == -1:  # If the bone has no parent, simply return
+        return
+
+    # First, handle the parent's matrices
+    parent_bone = hierarchy_map[bone_index].parent_index
+    accumulate_matrix_to_stack(hierarchy_map, parent_bone, matrix_stack)
+
+    # Combine the current bone's matrices and then push onto the stack
+    current_bone = hierarchy_map[bone_index]
+    combined_matrix = np.dot(current_bone.T, current_bone.R)
+    matrix_stack.push(np.dot(matrix_stack.top(), combined_matrix))
+
 
 
 def update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, child_bone_index):
     matrix_stack.push(np.eye(4))
 
-    # Traverse up the hierarchy from the child bone to the root (or another ancestor)
-    current_bone_index = child_bone_index
-    while current_bone_index != -1:
-        current_bone = hierarchy_map[current_bone_index]
-        # Multiply transformations according to the current bone's matrices
-        matrix_stack.multiply(current_bone.T)
-        matrix_stack.multiply(current_bone.R)
-        print("current_bone_index: ", current_bone_index)
-        # Move up the hierarchy
-        current_bone_index = current_bone.parent_index
-        print("current_bone_index moved to: ", current_bone_index)
+    # Accumulate matrices onto the stack from the root to the current child
+    accumulate_matrix_to_stack(hierarchy_map, child_bone_index, matrix_stack)
+
     # At this point, matrix_stack.top() contains the accumulated transformation for the child bone
     _bone_matrices[frame][child_bone_index] = matrix_stack.top()
-    print("Matrix", str(child_bone_index), " is set to: ", _bone_matrices[frame][child_bone_index])
-
     # Continue traversal for the children of the current bone
     for key, value in hierarchy_map.items():
         if value.parent_index == child_bone_index:
