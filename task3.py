@@ -12,10 +12,17 @@ class RelativeBoneTransform:
         self.parent_index = parent_index
         self.rotation_order = rotation_order
         self.joint_name = joint_name
-        self.relative_transform = np.eye(4)
-        self.absolute_transform = np.eye(4)
 
 
+class BoneTransform:
+    def __init__(self, qx, qy, qz, qw, px, py, pz):
+        self.qx = qx
+        self.qy = qy
+        self.qz = qz
+        self.qw = qw
+        self.px = px
+        self.py = py
+        self.pz = pz
 def load_hierarchy(file_path):
     bones = []
 
@@ -35,28 +42,11 @@ def load_hierarchy(file_path):
                     bones.append(bone)
                 else:
                     print(f"Malformed line: {line}")
-        return bone_count, bones  # Return both bone count and bones list
+        return bones  # Return both bone count and bones list
     except FileNotFoundError:
         print(f"Cannot read {file_path}")
-        return None, None  # Return None for both bone count and bones list in case of an error
+        return None  # Return None for both bone count and bones list in case of an error
 
-def calculate_absolute_transforms(bones):
-    for bone in bones:
-        if bone.parent_index == -1:  # This is the root bone
-            bone.absolute_transform = bone.relative_transform
-        else:
-            parent_bone = bones[bone.parent_index]
-            bone.absolute_transform = np.dot(parent_bone.absolute_transform, bone.relative_transform)
-
-class BoneTransform:
-    def __init__(self, qx, qy, qz, qw, px, py, pz):
-        self.qx = qx
-        self.qy = qy
-        self.qz = qz
-        self.qw = qw
-        self.px = px
-        self.py = py
-        self.pz = pz
 
 def load_skeleton(file_name, hierarchy):
     filename = os.path.join(DATA_DIR, file_name)
@@ -98,7 +88,7 @@ def load_skeleton(file_name, hierarchy):
                         _translation = np.array([_bone_transforms[frame][bone].px,
                                                  _bone_transforms[frame][bone].py + 0.2,  # Add 0.2 to the y-coordinate
                                                  _bone_transforms[frame][bone].pz])
-                        print("bone 18 translated")
+                        print("bone "+str(bone)+" translated")
                     M = np.eye(4)
                     M[:3, :3] = _rotation.as_matrix()
                     M[:, 3] = np.append(_translation, 1)
