@@ -14,8 +14,8 @@ class Bone:
         self.parent_index = parent_index
         self.rotation_order = rotation_order
         self.joint_name = joint_name
-        self.absolute_transform = np.eye(4)
-        self.relative_transform = np.eye(4)
+        self.T = np.eye(4)
+        self.R = np.eye(4)
 
 class BoneTransform:
     def __init__(self, qx, qy, qz, qw, px, py, pz):
