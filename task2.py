@@ -17,8 +17,16 @@ class BoneTransform:
         self.py = py
         self.pz = pz
 
+def transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, parent_bone_index=18):
+    for key, value in hierarchy_map.items():
+        if value.parent_index == parent_bone_index:
+            _bone_matrices[frame][key][:, 3] += np.array([0, 0.2, 0, 0])
+            print("bone " + str(value.joint_index) + " translated")
+            # Recursively call transform_child on the current bone to transform its children
+            transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, parent_bone_index=value.joint_index)
 
-def load_skeleton(file_name):
+
+def load_skeleton(file_name, hierarchy = False):
     filename = os.path.join(DATA_DIR, file_name)
     _translation = np.array([0, 0, 0])  # Initialize translation here
     try:

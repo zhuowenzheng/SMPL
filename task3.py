@@ -5,13 +5,15 @@ import os
 from scipy.spatial.transform import Rotation as R
 from task1 import save_obj
 from task1 import load_obj
-class RelativeBoneTransform:
-    def __init__(self,bone_count, joint_index, parent_index, rotation_order, joint_name):
-        self.bone_count = bone_count
+
+
+class Bone:
+    def __init__(self, joint_index, parent_index, rotation_order, joint_name):
         self.joint_index = joint_index
         self.parent_index = parent_index
         self.rotation_order = rotation_order
         self.joint_name = joint_name
+
 
 
 class BoneTransform:
@@ -23,34 +25,30 @@ class BoneTransform:
         self.px = px
         self.py = py
         self.pz = pz
-def load_hierarchy(file_path):
-    bones = []
 
+
+def load_hierarchy(file_path):
+    hierarchy_map = {}
     try:
         with open(file_path, 'r') as file:
             # Skip the first three lines starting with '#'
             for _ in range(3):
                 next(file)
-
             bone_count = int(next(file).strip())  # Read the bone count from the fourth line
-
             for line in file:
                 parts = line.strip().split()
-                if len(parts) == 4:  # Ensure each line has 4 components
-                    joint_index, parent_index, rotation_order, joint_name = map(int, parts[:2]) + parts[2:]
-                    bone = RelativeBoneTransform(joint_index, parent_index, rotation_order, joint_name)
-                    bones.append(bone)
-                else:
-                    print(f"Malformed line: {line}")
-        return bones  # Return both bone count and bones list
+                joint_index, parent_index, rotation_order, joint_name = list(map(int, parts[:2])) + parts[2:]
+                bone = Bone(joint_index, parent_index, rotation_order, joint_name)
+                hierarchy_map[joint_index] = bone
+        return hierarchy_map
     except FileNotFoundError:
         print(f"Cannot read {file_path}")
-        return None  # Return None for both bone count and bones list in case of an error
+        return None
 
+# print the hierarchy map
 
-def load_skeleton(file_name, hierarchy):
+def load_skeleton(file_name):
     filename = os.path.join(DATA_DIR, file_name)
-    bone_count, bones = hierarchy
     _translation = np.array([0, 0, 0])  # Initialize translation here
     try:
         with open(filename, 'r') as file:
@@ -88,23 +86,42 @@ def load_skeleton(file_name, hierarchy):
                         _translation = np.array([_bone_transforms[frame][bone].px,
                                                  _bone_transforms[frame][bone].py + 0.2,  # Add 0.2 to the y-coordinate
                                                  _bone_transforms[frame][bone].pz])
-                        print("bone "+str(bone)+" translated")
+                        print("bone " + str(bone) + " translated")
                     M = np.eye(4)
                     M[:3, :3] = _rotation.as_matrix()
                     M[:, 3] = np.append(_translation, 1)
                     _bone_matrices[frame][bone] = M
+                transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv)
 
     except FileNotFoundError:
         print(f"Cannot read {filename}")
 
     return _bone_matrices, _bone_matrices_inv
 
+
+def transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, parent_bone_index=18):
+    for key, value in hierarchy_map.items():
+        if value.parent_index == parent_bone_index:
+            _bone_matrices[frame][key][:, 3] += np.array([0, 0.2, 0, 0])
+            print("bone " + str(value.joint_index) + " translated")
+            # Recursively call transform_child on the current bone to transform its children
+            transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, parent_bone_index=value.joint_index)
+
+
+
+# Load hierarchy data
+hierarchy_map = load_hierarchy('../input/smpl_hierarchy.txt')
+
+# Compute absolute transforms
+# compute_absolute_transforms(hierarchy_map)
+
+
 def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count=1, bone_count=24):
     # Creating deep copies to ensure the original matrices are not modified
     new_bone_matrices = copy.deepcopy(base_bone_matrices)
     new_bone_matrices_inv = copy.deepcopy(base_bone_matrices_inv)
 
-    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[0] for i in range(1, 11)]
+    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i),)[0] for i in range(1, 11)]
     b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[1] for i in range(1, 11)]
 
     for frame in range(frame_count):
@@ -136,6 +153,7 @@ beta2 = [1.573618, 2.028960, -1.865066, 2.066879, 0.661796, -2.012298, -1.107509
 
 b1_bone_matrices, b1_bone_matrices_inv = generate_skel(bone_matrices, bone_matrices_inv, beta1)
 b2_bone_matrices, b2_bone_matrices_inv = generate_skel(bone_matrices, bone_matrices_inv, beta2)
+
 
 # Apply Skinning
 class ShapeSkin:
@@ -230,8 +248,7 @@ tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) fo
 tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in range(0, len(vertices_b1), 3)]
 tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in range(0, len(vertices_b2), 3)]
 
-
 # Save the original and new meshes
-save_obj('../output2/frame000.obj', tuple_vertices_b0)
-save_obj('../output2/frame001.obj', tuple_vertices_b1)
-save_obj('../output2/frame002.obj', tuple_vertices_b2)
+save_obj('../output3/frame000.obj', tuple_vertices_b0)
+save_obj('../output3/frame001.obj', tuple_vertices_b1)
+save_obj('../output3/frame002.obj', tuple_vertices_b2)
