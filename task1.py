@@ -12,7 +12,6 @@ def load_obj(filename):
 # Compute Delta Blendshapes
 base_vertices = load_obj('../input/smpl_00.obj')
 
-
 delta_blendshapes = [load_obj('../input/smpl_{:02d}.obj'.format(i)) for i in range(1, 11)]
 for i, blendshape in enumerate(delta_blendshapes):
     delta_blendshapes[i] = [(blendshape_v[0] - base_v[0], blendshape_v[1] - base_v[1], blendshape_v[2] - base_v[2]) for
@@ -41,6 +40,7 @@ def generate_mesh(base_vertices, delta_blendshapes, betas):
         )
         new_vertices.append(new_vertex)
     return new_vertices
+
 
 mesh1_vertices = generate_mesh(base_vertices, delta_blendshapes, beta1)
 mesh2_vertices = generate_mesh(base_vertices, delta_blendshapes, beta2)

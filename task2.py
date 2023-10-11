@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import os
 from scipy.spatial.transform import Rotation as R
@@ -28,7 +30,6 @@ def load_skeleton(file_name):
 
             frame_count, bone_count = map(int, next(file).split())
             frame_count += 1  # 0 indexing
-            # print(frame_count, bone_count)
 
             _bone_transforms = [[BoneTransform(0, 0, 0, 0, 0, 0, 0) for _ in range(bone_count)] for _ in
                                 range(frame_count)]
@@ -40,16 +41,10 @@ def load_skeleton(file_name):
                 values = map(float, line.split())
                 for bone in range(bone_count):
                     _bone_transforms[frame][bone] = BoneTransform(*[next(values) for _ in range(7)])
-                    if bone == 18:  # Check if the bone is the one at index 18
-                        _translation = np.array([_bone_transforms[frame][bone].px,
-                                                 _bone_transforms[frame][bone].py + 0.2,  # Add 0.2 to the y-coordinate
-                                                 _bone_transforms[frame][bone].pz])
-                        print("translated bone 18")
-                        print(_translation)
-                    else:
-                        _translation = np.array([_bone_transforms[frame][bone].px,
-                                                 _bone_transforms[frame][bone].py,
-                                                 _bone_transforms[frame][bone].pz])
+
+                    _translation = np.array([_bone_transforms[frame][bone].px,
+                                             _bone_transforms[frame][bone].py,
+                                             _bone_transforms[frame][bone].pz])
                     _rotation = R.from_quat([_bone_transforms[frame][bone].qx,
                                              _bone_transforms[frame][bone].qy,
                                              _bone_transforms[frame][bone].qz,
@@ -57,49 +52,63 @@ def load_skeleton(file_name):
                     M = np.eye(4)
                     M[:3, :3] = _rotation.as_matrix()
                     M[:, 3] = np.append(_translation, 1)
-                    _bone_matrices[frame][bone] = M
                     _bone_matrices_inv[frame][bone] = np.linalg.inv(M)
+                    if bone == 18:  # Check if the bone is the one at index 18
+                        _translation = np.array([_bone_transforms[frame][bone].px,
+                                                 _bone_transforms[frame][bone].py + 0.2,  # Add 0.2 to the y-coordinate
+                                                 _bone_transforms[frame][bone].pz])
+                        print("bone 18 translated")
+                    M = np.eye(4)
+                    M[:3, :3] = _rotation.as_matrix()
+                    M[:, 3] = np.append(_translation, 1)
+                    _bone_matrices[frame][bone] = M
 
     except FileNotFoundError:
         print(f"Cannot read {filename}")
 
-    return _translation, _bone_matrices, _bone_matrices_inv
+    return _bone_matrices, _bone_matrices_inv
 
+def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count=1, bone_count=24):
+    # Creating deep copies to ensure the original matrices are not modified
+    new_bone_matrices = [[np.eye(4) for _ in range(bone_count)] for _ in range(frame_count)]  # Create a deep copy
+    new_bone_matrices_inv = [[np.eye(4) for _ in range(bone_count)] for _ in range(frame_count)]
 
-def generate_skel(base_translation, translations_list, betas):
-    new_translations = []
-    for i in range(len(base_translation)):
-        delta_sum = np.array([0.0, 0.0, 0.0])
-        for beta, translation_list in zip(betas, translations_list):
-            delta_t = np.array(translation_list[i])  # Get the corresponding translation from each translation list
-            delta_sum += beta * (delta_t - np.array(base_translation[i]))
+    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[0] for i in range(1, 11)]
 
-        new_translation = tuple(delta_sum + np.array(base_translation[i]))
-        new_translations.append(new_translation)
-    return new_translations
+    for frame in range(frame_count):
+        for bone in range(bone_count):
+            delta_p_sum = np.zeros(4)
+            for b in range(10):
+                dpb = b_mats[b][frame][bone][:, 3] - base_bone_matrices[frame][bone][:, 3]
+                delta_p_sum += betas[b] * dpb
+            new_bone_matrices[frame][bone][:, 3] = base_bone_matrices[frame][bone][:, 3] + delta_p_sum
+
+            new_bone_matrices_inv[frame][bone] = np.linalg.inv(new_bone_matrices[frame][bone])
+
+    return new_bone_matrices, new_bone_matrices_inv
 
 
 DATA_DIR = "../input/"
-# bone_transforms, bone_matrices, bone_matrices_inv = load_skeleton()
+
 # smpl_00 is the base mesh
 # smpl_01 to smpl_10 are the delta blendshapes
 
 # Load the skeleton data
-translation, bone_matrices, bone_matrices_inv = load_skeleton('smpl_skel00.txt')
-
-
-translations_list = [tuple(translation)]
-for i in range(1, 11):
-    _translations, _, __ = load_skeleton(f'smpl_skel{i:02d}.txt')
-    translations_list.append(tuple(_translations))
+bone_matrices, bone_matrices_inv = load_skeleton('smpl_skel00.txt')
 
 # Generate New Meshes
 beta1 = [-1.711935, 2.352964, 2.285835, -0.073122, 1.501402, -1.790568, -0.391194, 2.078678, 1.461037, 2.297462]
 beta2 = [1.573618, 2.028960, -1.865066, 2.066879, 0.661796, -2.012298, -1.107509, 0.234408, 2.287534, 2.324443]
 
-skel_b1 = generate_skel(translation, translations_list, beta1)
-skel_b2 = generate_skel(translation, translations_list, beta2)
+b1_bone_matrices, b1_bone_matrices_inv = generate_skel(bone_matrices, bone_matrices_inv, beta1)
+b2_bone_matrices, b2_bone_matrices_inv = generate_skel(bone_matrices, bone_matrices_inv, beta2)
 
+print("bone_matrices[0][18]:\n", bone_matrices[0][18])
+print("bone_matrices[0][18]:\n", bone_matrices_inv[0][18])
+print("b1_bone_matrices[0][18]:\n", b1_bone_matrices[0][18])
+print("b1_bone_matrices_inv[0][18]:\n", b1_bone_matrices_inv[0][18])
+print("b2_bone_matrices[0][18]:\n", b2_bone_matrices[0][18])
+print("b2_bone_matrices_inv[0][18]:\n", b2_bone_matrices_inv[0][18])
 
 # Apply Skinning
 class ShapeSkin:
@@ -146,8 +155,7 @@ class ShapeSkin:
         except FileNotFoundError:
             print(f"Cannot read {filepath}")
 
-
-    def linear_blended_skinning(self, k, boneMatrices, boneMatricesInv):
+    def linear_blended_skinning(self, k, bone_mat, bone_mat_inv):
         # CPU skinning calculations
         # Linear Blend Skinning
 
@@ -155,11 +163,11 @@ class ShapeSkin:
         M_product = []
         # pos_buf is a numpy array ,size = 3 * vertexCount
         pos_buf = load_obj('../input/smpl_00.obj')
-        newPosBuf = np.zeros(len(pos_buf)*3)
+        newPosBuf = np.zeros(len(pos_buf) * 3)
 
         for j in range(self.boneCount):
-            Mjk = boneMatrices[k][j]
-            Mj0_inv = boneMatricesInv[0][j]
+            Mjk = bone_mat[k][j]
+            Mj0_inv = bone_mat_inv[0][j]
             M_product.append(np.dot(Mjk, Mj0_inv))
 
         # Iterate through all related bones
@@ -172,17 +180,13 @@ class ShapeSkin:
             J = self.boneIndices[i]
             w = self.skinningWeights[i]
 
-
-
             for n in range(self.maxInfluences):
-
                 xi_k += w[n] * np.dot(M_product[J[n]], xi_0)
 
             # send xi_k to posbuf
             newPosBuf[i * 3] = xi_k[0]
             newPosBuf[i * 3 + 1] = xi_k[1]
             newPosBuf[i * 3 + 2] = xi_k[2]
-
 
         return newPosBuf
 
@@ -191,10 +195,15 @@ shape_skin = ShapeSkin()
 shape_skin.load_attachment('smpl_skin.txt')
 
 # Compose posBuf into a list of vertices
-vertices = shape_skin.linear_blended_skinning(0, bone_matrices, bone_matrices_inv)
-tuple_vertices = [(vertices[i], vertices[i + 1], vertices[i + 2]) for i in range(0, len(vertices), 3)]
+vertices_b0 = shape_skin.linear_blended_skinning(0, bone_matrices, bone_matrices_inv)
+vertices_b1 = shape_skin.linear_blended_skinning(0, b1_bone_matrices, b1_bone_matrices_inv)
+vertices_b2 = shape_skin.linear_blended_skinning(0, b2_bone_matrices, b2_bone_matrices_inv)
+
+tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in range(0, len(vertices_b0), 3)]
+tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in range(0, len(vertices_b1), 3)]
+tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in range(0, len(vertices_b2), 3)]
 
 # Save the original and new meshes
-save_obj('../output2/frame000.obj', tuple_vertices)
-save_obj('../output2/frame001.obj', skel_b1)
-save_obj('../output2/frame002.obj', skel_b2)
+save_obj('../output2/frame000.obj', tuple_vertices_b0)
+save_obj('../output2/frame001.obj', tuple_vertices_b1)
+save_obj('../output2/frame002.obj', tuple_vertices_b2)
