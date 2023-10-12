@@ -154,7 +154,9 @@ def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count
 
     b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i), )[0] for i in range(1, 11)]
     b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[1] for i in range(1, 11)]
+    #append frameCount of np.eye(4) to each list in b_mats and b_mats_inv
 
+    print("Here", frame_count)
     for frame in range(frame_count):
         for bone in range(bone_count):
             delta_p_sum = np.zeros(4)

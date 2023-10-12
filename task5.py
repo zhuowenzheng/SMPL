@@ -1,7 +1,9 @@
+import copy
+
 import numpy as np
 import os
 from task1 import save_obj
-from task4 import load_hierarchy, BoneTransform, beta1, beta2, generate_skel, ShapeSkin
+from task4 import load_hierarchy, BoneTransform, beta1, beta2, ShapeSkin
 from scipy.spatial.transform import Rotation as Rt
 from MatrixStack import MatrixStack as m_stack
 
@@ -78,11 +80,7 @@ def load_skeleton(file_name):
                         hierarchy_map[bone].T = _bone_matrices[frame][bone] - _bone_matrices[frame][
                             hierarchy_map[bone].parent_index] + np.eye(4)
 
-
-
             animation(quaternion_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, 160, 24)
-            print("frame count: ", len(_bone_matrices))
-
             print("Loading Complete.")
             return _bone_matrices, _bone_matrices_inv
     except FileNotFoundError:
@@ -133,15 +131,41 @@ def animation(quaternion_data, hierarchy_map, _bone_matrices, _bone_matrices_inv
             hierarchy_map[bone].R = matrix_stack.top()
         update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, 0)
 
+def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count, bone_count):
+    # Creating deep copies to ensure the original matrices are not modified
+    new_bone_matrices = copy.deepcopy(base_bone_matrices)
+    new_bone_matrices_inv = copy.deepcopy(base_bone_matrices_inv)
 
+    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[0] for i in range(1, 11)]
+    b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[1] for i in range(1, 11)]
+
+    for b in range(10):
+        for frame in range(frame_count):
+            b_mats[b].append([np.eye(4) for _ in range(bone_count)])
+            b_mats_inv[b].append([np.eye(4) for _ in range(bone_count)])
+
+
+    for frame in range(frame_count):
+        for bone in range(bone_count):
+            delta_p_sum = np.zeros(4)
+            delta_p_inv_sum = np.zeros(4)
+            for b in range(10):
+                dpb = b_mats[b][frame][bone][:, 3] - base_bone_matrices[frame][bone][:, 3]
+                dpb_inv = b_mats_inv[b][frame][bone][:, 3] - base_bone_matrices_inv[frame][bone][:, 3]
+                delta_p_sum += betas[b] * dpb
+                delta_p_inv_sum += betas[b] * dpb_inv
+            new_bone_matrices[frame][bone][:, 3] = base_bone_matrices[frame][bone][:, 3] + delta_p_sum
+            new_bone_matrices_inv[frame][bone][:, 3] = base_bone_matrices_inv[frame][bone][:, 3] + delta_p_inv_sum
+
+    return new_bone_matrices, new_bone_matrices_inv
 
 file_path = '../input/smpl_quaternions_mosh_cmu_7516.txt'
 quaternion_data = load_quaternions(file_path)
 
 mocap_b0_matrices, mocap_b0_matrices_inv = load_skeleton('smpl_skel00.txt')
 
-mocap_b1_matrices, mocap_b1_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta1)
-mocap_b2_matrices, mocap_b2_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta2)
+mocap_b1_matrices, mocap_b1_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta1, frame_count=160, bone_count=24)
+mocap_b2_matrices, mocap_b2_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta2, frame_count=160, bone_count=24)
 
 shape_skin = ShapeSkin()
 shape_skin.load_attachment('smpl_skin.txt')
@@ -158,5 +182,3 @@ for k in range(160):
     save_obj('../output5/frame{:03d}.obj'.format(k), tuple_vertices_b0)
     save_obj('../output5/frame{:03d}.obj'.format(k+160), tuple_vertices_b1)
     save_obj('../output5/frame{:03d}.obj'.format(k+320), tuple_vertices_b2)
-
-print(quaternion_data[0][0])
