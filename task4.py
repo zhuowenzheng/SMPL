@@ -58,7 +58,7 @@ def load_skeleton(file_name):
     _translation = np.array([0, 0, 0])  # Initialize translation here
     try:
         with open(filename, 'r') as file:
-            print(f"Loading {filename}")
+            # print(f"Loading {filename}")
 
             for _ in range(3):  # Skip the first three lines
                 next(file)
@@ -111,7 +111,7 @@ def load_skeleton(file_name):
 
     except FileNotFoundError:
         print(f"Cannot read {filename}")
-    print("Loading Complete.")
+    #print("Loading Complete.")
     return _bone_matrices, _bone_matrices_inv
 
 
