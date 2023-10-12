@@ -13,6 +13,7 @@ DATA_DIR = '../input'
 
 hierarchy_map = load_hierarchy('../input/smpl_hierarchy.txt')
 
+
 def load_quaternions(file_path):
     quaternion_frames = []
     try:
@@ -36,7 +37,7 @@ def load_quaternions(file_path):
     return quaternion_frames
 
 
-def load_skeleton(file_name):
+def load_skeleton(file_name, quat_data):
     filename = os.path.join(DATA_DIR, file_name)
     _translation = np.array([0, 0, 0])  # Initialize translation here
     try:
@@ -80,7 +81,7 @@ def load_skeleton(file_name):
                         hierarchy_map[bone].T = _bone_matrices[frame][bone] - _bone_matrices[frame][
                             hierarchy_map[bone].parent_index] + np.eye(4)
 
-            animation(quaternion_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, 160, 24)
+            animation(quat_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, 160, 24)
             print("Loading Complete.")
             return _bone_matrices, _bone_matrices_inv
     except FileNotFoundError:
@@ -118,8 +119,9 @@ def update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, ch
     # Pop the accumulated transformation before moving to the next sibling bone
     matrix_stack.pop()
 
-#rotate all bones in each frame using quaternions to generate animation mocap matrices
-def animation(quaternion_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, frame_count, bone_count):
+
+# rotate all bones in each frame using quaternions to generate animation mocap matrices
+def animation(quat_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, frame_count, bone_count):
     for frame in range(frame_count):
         _bone_matrices.append([np.eye(4) for _ in range(bone_count)])
         _bone_matrices_inv.append([np.eye(4) for _ in range(bone_count)])
@@ -131,19 +133,19 @@ def animation(quaternion_data, hierarchy_map, _bone_matrices, _bone_matrices_inv
             hierarchy_map[bone].R = matrix_stack.top()
         update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, 0)
 
+
 def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count, bone_count):
     # Creating deep copies to ensure the original matrices are not modified
     new_bone_matrices = copy.deepcopy(base_bone_matrices)
     new_bone_matrices_inv = copy.deepcopy(base_bone_matrices_inv)
 
-    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[0] for i in range(1, 11)]
-    b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i))[1] for i in range(1, 11)]
+    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quaternion_data)[0] for i in range(1, 11)]
+    b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quaternion_data)[1] for i in range(1, 11)]
 
     for b in range(10):
         for frame in range(frame_count):
             b_mats[b].append([np.eye(4) for _ in range(bone_count)])
             b_mats_inv[b].append([np.eye(4) for _ in range(bone_count)])
-
 
     for frame in range(frame_count):
         for bone in range(bone_count):
@@ -159,26 +161,35 @@ def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count
 
     return new_bone_matrices, new_bone_matrices_inv
 
+
 file_path = '../input/smpl_quaternions_mosh_cmu_7516.txt'
 quaternion_data = load_quaternions(file_path)
 
-mocap_b0_matrices, mocap_b0_matrices_inv = load_skeleton('smpl_skel00.txt')
+mocap_b0_matrices, mocap_b0_matrices_inv = load_skeleton('smpl_skel00.txt', quaternion_data)
 
-mocap_b1_matrices, mocap_b1_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta1, frame_count=160, bone_count=24)
-mocap_b2_matrices, mocap_b2_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta2, frame_count=160, bone_count=24)
+mocap_b1_matrices, mocap_b1_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta1,
+                                                         frame_count=160, bone_count=24)
+mocap_b2_matrices, mocap_b2_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta2,
+                                                         frame_count=160, bone_count=24)
 
 shape_skin = ShapeSkin()
 shape_skin.load_attachment('smpl_skin.txt')
 
 for k in range(160):
-    vertices_b0 = shape_skin.linear_blended_skinning(k, mocap_b0_matrices, mocap_b0_matrices_inv, '../output1/frame000.obj')
-    vertices_b1 = shape_skin.linear_blended_skinning(k, mocap_b1_matrices, mocap_b1_matrices_inv, '../output1/frame001.obj')
-    vertices_b2 = shape_skin.linear_blended_skinning(k, mocap_b2_matrices, mocap_b2_matrices_inv, '../output1/frame002.obj')
+    vertices_b0 = shape_skin.linear_blended_skinning(k, mocap_b0_matrices, mocap_b0_matrices_inv,
+                                                     '../output1/frame000.obj')
+    vertices_b1 = shape_skin.linear_blended_skinning(k, mocap_b1_matrices, mocap_b1_matrices_inv,
+                                                     '../output1/frame001.obj')
+    vertices_b2 = shape_skin.linear_blended_skinning(k, mocap_b2_matrices, mocap_b2_matrices_inv,
+                                                     '../output1/frame002.obj')
 
-    tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in range(0, len(vertices_b0), 3)]
-    tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in range(0, len(vertices_b1), 3)]
-    tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in range(0, len(vertices_b2), 3)]
+    tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in
+                         range(0, len(vertices_b0), 3)]
+    tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in
+                         range(0, len(vertices_b1), 3)]
+    tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in
+                         range(0, len(vertices_b2), 3)]
 
     save_obj('../output5/frame{:03d}.obj'.format(k), tuple_vertices_b0)
-    save_obj('../output5/frame{:03d}.obj'.format(k+160), tuple_vertices_b1)
-    save_obj('../output5/frame{:03d}.obj'.format(k+320), tuple_vertices_b2)
+    save_obj('../output5/frame{:03d}.obj'.format(k + 160), tuple_vertices_b1)
+    save_obj('../output5/frame{:03d}.obj'.format(k + 320), tuple_vertices_b2)
