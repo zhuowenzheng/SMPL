@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 import os
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation as Rt
 from task1 import save_obj
 from task1 import load_obj
 from MatrixStack import MatrixStack as m_stack
@@ -80,10 +80,10 @@ def load_skeleton(file_name):
                     _translation = np.array([_bone_transforms[frame][bone].px,
                                              _bone_transforms[frame][bone].py,
                                              _bone_transforms[frame][bone].pz])
-                    _rotation = R.from_quat([_bone_transforms[frame][bone].qx,
-                                             _bone_transforms[frame][bone].qy,
-                                             _bone_transforms[frame][bone].qz,
-                                             _bone_transforms[frame][bone].qw])
+                    _rotation = Rt.from_quat([_bone_transforms[frame][bone].qx,
+                                              _bone_transforms[frame][bone].qy,
+                                              _bone_transforms[frame][bone].qz,
+                                              _bone_transforms[frame][bone].qw])
                     M = np.eye(4)
                     M[:3, :3] = _rotation.as_matrix()
                     M[:, 3] = np.append(_translation, 1)
@@ -147,11 +147,6 @@ def update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, ch
     # Pop the accumulated transformation before moving to the next sibling bone
     matrix_stack.pop()
 
-
-# Compute absolute transforms
-# compute_absolute_transforms(hierarchy_map)
-
-
 def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, frame_count=1, bone_count=24):
     # Creating deep copies to ensure the original matrices are not modified
     new_bone_matrices = copy.deepcopy(base_bone_matrices)
@@ -204,7 +199,7 @@ class ShapeSkin:
         filepath = os.path.join("../input", filename)
         try:
             with open(filepath, 'r') as file:
-                print(f"Loading {filepath}")
+                print(f"Loading {filepath} for skinning")
 
                 # Skip the first four lines
                 for _ in range(4):
