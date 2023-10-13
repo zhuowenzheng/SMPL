@@ -1,13 +1,13 @@
 import os
 
-import pywavefront
-
-
 def load_obj(filename):
-    scene = pywavefront.Wavefront(filename, collect_faces=True)
-    vertices = scene.vertices
+    vertices = []
+    with open(filename) as file:
+        for line in file:
+            if line.startswith('v '):
+                vertex = list(map(float, line.strip().split()[1:]))
+                vertices.append(vertex)
     return vertices
-
 
 # Compute Delta Blendshapes
 base_vertices = load_obj('../input/smpl_00.obj')
