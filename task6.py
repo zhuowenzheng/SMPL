@@ -182,7 +182,7 @@ if __name__ == "__main__":
                                     range(0, len(vertices_intp2))]
             save_obj('../output6/frame{:03d}.obj'.format(k + 340), tuple_vertices_intp2)
 
-        # 390-479
+        # 390-469
         print("Generating frame 390-469...")
         for k in range(80):
             # play the last 80 frames of 8806 in b2
