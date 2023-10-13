@@ -2,7 +2,7 @@ import copy
 import numpy as np
 import os
 from scipy.spatial.transform import Rotation as Rt
-from task1 import save_obj, load_obj, generate_mesh, base_vertices, delta_blendshapes
+from task1 import save_obj, load_obj
 from MatrixStack import MatrixStack as m_stack
 
 matrix_stack = m_stack()
@@ -199,7 +199,7 @@ class ShapeSkin:
         filepath = os.path.join("../input", filename)
         try:
             with open(filepath, 'r') as file:
-                print(f"Loading {filepath} for skinning")
+                # print(f"Loading {filepath} for skinning")
 
                 # Skip the first four lines
                 for _ in range(4):
@@ -211,9 +211,6 @@ class ShapeSkin:
                 self.boneCount = boneCount
                 self.vertexCount = vertCount
                 self.maxInfluences = maxInfluences
-
-                print(f"vertCount: {vertCount}")
-                print(f"boneCount: {boneCount}")
 
                 # Resize the vectors to the correct size
 
@@ -266,20 +263,29 @@ class ShapeSkin:
 
         return newPosBuf
 
+if __name__ == "__main__":
+    try:
+        shape_skin = ShapeSkin()
+        shape_skin.load_attachment('smpl_skin.txt')
 
-shape_skin = ShapeSkin()
-shape_skin.load_attachment('smpl_skin.txt')
+        # Compose posBuf into a list of vertices
+        vertices_b0 = shape_skin.linear_blended_skinning(0, bone_matrices, bone_matrices_inv, '../output1/frame000.obj')
+        vertices_b1 = shape_skin.linear_blended_skinning(0, b1_bone_matrices, b1_bone_matrices_inv,
+                                                         '../output1/frame001.obj')
+        vertices_b2 = shape_skin.linear_blended_skinning(0, b2_bone_matrices, b2_bone_matrices_inv,
+                                                         '../output1/frame002.obj')
 
-# Compose posBuf into a list of vertices
-vertices_b0 = shape_skin.linear_blended_skinning(0, bone_matrices, bone_matrices_inv, '../output1/frame000.obj')
-vertices_b1 = shape_skin.linear_blended_skinning(0, b1_bone_matrices, b1_bone_matrices_inv, '../output1/frame001.obj')
-vertices_b2 = shape_skin.linear_blended_skinning(0, b2_bone_matrices, b2_bone_matrices_inv, '../output1/frame002.obj')
+        tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in
+                             range(0, len(vertices_b0), 3)]
+        tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in
+                             range(0, len(vertices_b1), 3)]
+        tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in
+                             range(0, len(vertices_b2), 3)]
 
-tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in range(0, len(vertices_b0), 3)]
-tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in range(0, len(vertices_b1), 3)]
-tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in range(0, len(vertices_b2), 3)]
-
-# Save the original and new meshes
-save_obj('../output4/frame000.obj', tuple_vertices_b0)
-save_obj('../output4/frame001.obj', tuple_vertices_b1)
-save_obj('../output4/frame002.obj', tuple_vertices_b2)
+        # Save the original and new meshes
+        save_obj('../output4/frame000.obj', tuple_vertices_b0)
+        save_obj('../output4/frame001.obj', tuple_vertices_b1)
+        save_obj('../output4/frame002.obj', tuple_vertices_b2)
+        print("Task 4 done.")
+    except Exception as e:
+        print(f"An error occurred: {e}")

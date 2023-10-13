@@ -53,7 +53,6 @@ def load_skeleton(file_name):
     _translation = np.array([0, 0, 0])  # Initialize translation here
     try:
         with open(filename, 'r') as file:
-            print(f"Loading {filename}")
 
             for _ in range(3):  # Skip the first three lines
                 next(file)
@@ -87,7 +86,7 @@ def load_skeleton(file_name):
                         _translation = np.array([_bone_transforms[frame][bone].px,
                                                  _bone_transforms[frame][bone].py + 0.2,  # Add 0.2 to the y-coordinate
                                                  _bone_transforms[frame][bone].pz])
-                        print("bone " + str(bone) + " translated")
+
                     M = np.eye(4)
                     M[:3, :3] = _rotation.as_matrix()
                     M[:, 3] = np.append(_translation, 1)
@@ -104,7 +103,7 @@ def transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, pa
     for key, value in hierarchy_map.items():
         if value.parent_index == parent_bone_index:
             _bone_matrices[frame][key][:, 3] += np.array([0, 0.2, 0, 0])
-            print("bone " + str(value.joint_index) + " translated")
+
             # Recursively call transform_child on the current bone to transform its children
             transform_child(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, parent_bone_index=value.joint_index)
 
@@ -145,15 +144,7 @@ DATA_DIR = "../input/"
 # smpl_00 is the base mesh
 # smpl_01 to smpl_10 are the delta blendshapes
 
-# Load the skeleton data
-bone_matrices, bone_matrices_inv = load_skeleton('smpl_skel00.txt')
 
-# Generate New Meshes
-beta1 = [-1.711935, 2.352964, 2.285835, -0.073122, 1.501402, -1.790568, -0.391194, 2.078678, 1.461037, 2.297462]
-beta2 = [1.573618, 2.028960, -1.865066, 2.066879, 0.661796, -2.012298, -1.107509, 0.234408, 2.287534, 2.324443]
-
-b1_bone_matrices, b1_bone_matrices_inv = generate_skel(bone_matrices, bone_matrices_inv, beta1)
-b2_bone_matrices, b2_bone_matrices_inv = generate_skel(bone_matrices, bone_matrices_inv, beta2)
 
 
 # Apply Skinning
@@ -169,7 +160,6 @@ class ShapeSkin:
         filepath = os.path.join("../input", filename)
         try:
             with open(filepath, 'r') as file:
-                print(f"Loading {filepath}")
 
                 # Skip the first four lines
                 for _ in range(4):
@@ -181,9 +171,6 @@ class ShapeSkin:
                 self.boneCount = boneCount
                 self.vertexCount = vertCount
                 self.maxInfluences = maxInfluences
-
-                print(f"vertCount: {vertCount}")
-                print(f"boneCount: {boneCount}")
 
                 # Resize the vectors to the correct size
 
@@ -237,19 +224,39 @@ class ShapeSkin:
         return newPosBuf
 
 
-shape_skin = ShapeSkin()
-shape_skin.load_attachment('smpl_skin.txt')
+if __name__ == "__main__":
+    try:
+        # Load the skeleton data
+        bone_matrices, bone_matrices_inv = load_skeleton('smpl_skel00.txt')
 
-# Compose posBuf into a list of vertices
-vertices_b0 = shape_skin.linear_blended_skinning(0, bone_matrices, bone_matrices_inv, '../output1/frame000.obj')
-vertices_b1 = shape_skin.linear_blended_skinning(0, b1_bone_matrices, b1_bone_matrices_inv, '../output1/frame001.obj')
-vertices_b2 = shape_skin.linear_blended_skinning(0, b2_bone_matrices, b2_bone_matrices_inv, '../output1/frame002.obj')
+        # Generate New Meshes
+        beta1 = [-1.711935, 2.352964, 2.285835, -0.073122, 1.501402, -1.790568, -0.391194, 2.078678, 1.461037, 2.297462]
+        beta2 = [1.573618, 2.028960, -1.865066, 2.066879, 0.661796, -2.012298, -1.107509, 0.234408, 2.287534, 2.324443]
 
-tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in range(0, len(vertices_b0), 3)]
-tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in range(0, len(vertices_b1), 3)]
-tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in range(0, len(vertices_b2), 3)]
+        b1_bone_matrices, b1_bone_matrices_inv = generate_skel(bone_matrices, bone_matrices_inv, beta1)
+        b2_bone_matrices, b2_bone_matrices_inv = generate_skel(bone_matrices, bone_matrices_inv, beta2)
 
-# Save the original and new meshes
-save_obj('../output3/frame000.obj', tuple_vertices_b0)
-save_obj('../output3/frame001.obj', tuple_vertices_b1)
-save_obj('../output3/frame002.obj', tuple_vertices_b2)
+        shape_skin = ShapeSkin()
+        shape_skin.load_attachment('smpl_skin.txt')
+
+        # Compose posBuf into a list of vertices
+        vertices_b0 = shape_skin.linear_blended_skinning(0, bone_matrices, bone_matrices_inv, '../output1/frame000.obj')
+        vertices_b1 = shape_skin.linear_blended_skinning(0, b1_bone_matrices, b1_bone_matrices_inv,
+                                                         '../output1/frame001.obj')
+        vertices_b2 = shape_skin.linear_blended_skinning(0, b2_bone_matrices, b2_bone_matrices_inv,
+                                                         '../output1/frame002.obj')
+
+        tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in
+                             range(0, len(vertices_b0), 3)]
+        tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in
+                             range(0, len(vertices_b1), 3)]
+        tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in
+                             range(0, len(vertices_b2), 3)]
+
+        # Save the original and new meshes
+        save_obj('../output3/frame000.obj', tuple_vertices_b0)
+        save_obj('../output3/frame001.obj', tuple_vertices_b1)
+        save_obj('../output3/frame002.obj', tuple_vertices_b2)
+        print("Task 3 done.")
+    except Exception as e:
+        print(f"An error occurred: {e}")

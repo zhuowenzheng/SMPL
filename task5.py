@@ -22,8 +22,7 @@ def load_quaternions(file_path):
             for _ in range(4):
                 next(file)
             frame_count, bone_count = next(file).strip().split()
-            print("frame count: " + str(frame_count))
-            print("bone count: " + str(bone_count))
+
             for line in file:
                 values = line.strip().split()
                 root_translation = list(map(float, values[:3]))  # Capture root translation values
@@ -134,13 +133,13 @@ def animation(quat_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, fram
         update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, 0)
 
 
-def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, quat_data, frame_count, bone_count):
+def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, quat_data, frame_count, bone_count, frame_=160):
     # Creating deep copies to ensure the original matrices are not modified
     new_bone_matrices = copy.deepcopy(base_bone_matrices)
     new_bone_matrices_inv = copy.deepcopy(base_bone_matrices_inv)
 
-    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quat_data)[0] for i in range(1, 11)]
-    b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quat_data)[1] for i in range(1, 11)]
+    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quat_data, frame_)[0] for i in range(1, 11)]
+    b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quat_data, frame_)[1] for i in range(1, 11)]
 
     for b in range(10):
         for frame in range(frame_count):
@@ -163,34 +162,40 @@ def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, quat_data, 
 
 
 if __name__ == "__main__":
-    file_path = '../input/smpl_quaternions_mosh_cmu_7516.txt'
-    quat_data = load_quaternions(file_path)
+    try:
+        file_path = '../input/smpl_quaternions_mosh_cmu_7516.txt'
+        quat_data = load_quaternions(file_path)
 
-    mocap_b0_matrices, mocap_b0_matrices_inv = load_skeleton('smpl_skel00.txt', quat_data)
+        mocap_b0_matrices, mocap_b0_matrices_inv = load_skeleton('smpl_skel00.txt', quat_data)
 
-    mocap_b1_matrices, mocap_b1_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta1, quat_data,
-                                                             frame_count=160, bone_count=24)
-    mocap_b2_matrices, mocap_b2_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta2, quat_data,
-                                                             frame_count=160, bone_count=24)
+        mocap_b1_matrices, mocap_b1_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta1,
+                                                                 quat_data,
+                                                                 frame_count=160, bone_count=24)
+        mocap_b2_matrices, mocap_b2_matrices_inv = generate_skel(mocap_b0_matrices, mocap_b0_matrices_inv, beta2,
+                                                                 quat_data,
+                                                                 frame_count=160, bone_count=24)
 
-    shape_skin = ShapeSkin()
-    shape_skin.load_attachment('smpl_skin.txt')
+        shape_skin = ShapeSkin()
+        shape_skin.load_attachment('smpl_skin.txt')
+        print("Generating 480 frames in total for 3 betas...")
+        for k in range(160):
+            vertices_b0 = shape_skin.linear_blended_skinning(k, mocap_b0_matrices, mocap_b0_matrices_inv,
+                                                             '../output1/frame000.obj')
+            vertices_b1 = shape_skin.linear_blended_skinning(k, mocap_b1_matrices, mocap_b1_matrices_inv,
+                                                             '../output1/frame001.obj')
+            vertices_b2 = shape_skin.linear_blended_skinning(k, mocap_b2_matrices, mocap_b2_matrices_inv,
+                                                             '../output1/frame002.obj')
 
-    for k in range(160):
-        vertices_b0 = shape_skin.linear_blended_skinning(k, mocap_b0_matrices, mocap_b0_matrices_inv,
-                                                         '../output1/frame000.obj')
-        vertices_b1 = shape_skin.linear_blended_skinning(k, mocap_b1_matrices, mocap_b1_matrices_inv,
-                                                         '../output1/frame001.obj')
-        vertices_b2 = shape_skin.linear_blended_skinning(k, mocap_b2_matrices, mocap_b2_matrices_inv,
-                                                         '../output1/frame002.obj')
+            tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in
+                                 range(0, len(vertices_b0), 3)]
+            tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in
+                                 range(0, len(vertices_b1), 3)]
+            tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in
+                                 range(0, len(vertices_b2), 3)]
 
-        tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in
-                             range(0, len(vertices_b0), 3)]
-        tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in
-                             range(0, len(vertices_b1), 3)]
-        tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in
-                             range(0, len(vertices_b2), 3)]
-
-        save_obj('../output5/frame{:03d}.obj'.format(k), tuple_vertices_b0)
-        save_obj('../output5/frame{:03d}.obj'.format(k + 160), tuple_vertices_b1)
-        save_obj('../output5/frame{:03d}.obj'.format(k + 320), tuple_vertices_b2)
+            save_obj('../output5/frame{:03d}.obj'.format(k), tuple_vertices_b0)
+            save_obj('../output5/frame{:03d}.obj'.format(k + 160), tuple_vertices_b1)
+            save_obj('../output5/frame{:03d}.obj'.format(k + 320), tuple_vertices_b2)
+        print("Task 5 done.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
