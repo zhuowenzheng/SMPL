@@ -37,7 +37,7 @@ def load_quaternions(file_path):
     return quaternion_frames
 
 
-def load_skeleton(file_name, quat_data):
+def load_skeleton(file_name, quat_data, frame_=160, bone_=24):
     filename = os.path.join(DATA_DIR, file_name)
     _translation = np.array([0, 0, 0])  # Initialize translation here
     try:
@@ -81,7 +81,7 @@ def load_skeleton(file_name, quat_data):
                         hierarchy_map[bone].T = _bone_matrices[frame][bone] - _bone_matrices[frame][
                             hierarchy_map[bone].parent_index] + np.eye(4)
 
-            animation(quat_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, 160, 24)
+            animation(quat_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, frame_, bone_)
             # print("Loading Complete.")
             return _bone_matrices, _bone_matrices_inv
     except FileNotFoundError:

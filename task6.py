@@ -52,22 +52,27 @@ for k in range(95):
 
 print("Generating frame 95-144...")
 # 95-144
+vertices_7516_b0_94 = shape_skin.linear_blended_skinning(94, mocap_b0_matrices_7516, mocap_b0_matrices_inv_7516,
+                                                            '../output1/frame000.obj')
+tuple_vertices_7516_b0_94 = [(vertices_7516_b0_94[i], vertices_7516_b0_94[i + 1], vertices_7516_b0_94[i + 2]) for i in
+                                range(0, len(vertices_7516_b0_94), 3)]
+vertices_7516_b1_94 = shape_skin.linear_blended_skinning(94, mocap_b1_matrices_7516, mocap_b1_matrices_inv_7516,
+                                                            '../output1/frame001.obj')
+tuple_vertices_7516_b1_94 = [(vertices_7516_b1_94[i], vertices_7516_b1_94[i + 1], vertices_7516_b1_94[i + 2]) for i in
+                                range(0, len(vertices_7516_b1_94), 3)]
+
 for k in range(50):
     t = k / 49  # t goes from 0 to 1
-    beta_intp1 = (1 - t) * beta0 + t * beta1
-    # animating and skinning using beta_intp1
-    b0b1_7516, b0b1_7516_inv = generate_skel([mocap_b0_matrices_7516[94]],
-                                             [mocap_b0_matrices_inv_7516[94]],
-                                             beta_intp1, quaternion_data_7516, frame_count=1,
-                                             bone_count=24)
-    segment_7516_b0b1 = shape_skin.linear_blended_skinning_intp(0, b0b1_7516, b0b1_7516_inv,
-                                                                beta_intp1)
-    tuple_segment_7516_b0b1 = [(segment_7516_b0b1[i], segment_7516_b0b1[i + 1], segment_7516_b0b1[i + 2]) for i in
-                               range(0, len(segment_7516_b0b1), 3)]
+    vertices_intp1 = []
+    for i in range(len(tuple_vertices_7516_b0_94)):
+        v_temp = [0.0, 0.0, 0.0]
+        for j in range(3):
+            v_temp[j] = (1 - t) * tuple_vertices_7516_b0_94[i][j] + t * tuple_vertices_7516_b1_94[i][j]
+        vertices_intp1.append(v_temp)
+    tuple_vertices_intp1 = [(vertices_intp1[i][0], vertices_intp1[i][1], vertices_intp1[i][2]) for i in
+                            range(0, len(vertices_intp1))]
+    save_obj('../output6/frame{:03d}.obj'.format(k + 95), tuple_vertices_intp1)
 
-    save_obj('../output6/frame{:03d}.obj'.format(k + 95), tuple_segment_7516_b0b1)
-
-# save_obj(f'../output6/frame{str(k + 95).zfill(3)}.obj', tuple_vertices_b0)
 print("Generating frame 145-209...")
 # 145-209
 for k in range(65):
@@ -110,34 +115,27 @@ for i in range(24):
         quaternion_first_8806[i] = -quaternion_first_8806[i]
 
 # 210-259
+# generate quaternions for 50 frames
+quaternions_7516_8806 = []
+for k in range(50):
+    t = k / 49  # t goes from 0 to 1
+    frame_quaternions = []
+    for i in range(24):
+        quat = [quaternion_last_7516[i][j] * (1 - t) + quaternion_first_8806[i][j] * t for j in range(4)]
+        # Normalize the quaternion
+        norm = np.linalg.norm(quat)
+        if norm != 0:
+            quat = [q / norm for q in quat]
+        frame_quaternions.append(quat)
+
+    quaternions_7516_8806.append(frame_quaternions)
+# rotation_mat_7516_8806 = [R.from_quat(q).as_matrix() for q in normalized_quaternions]
+
+intpq_7516_8806, intpq_7516_8806_inv = load_skeleton('../input/smpl_skel00.txt', quaternions_7516_8806, frame_=50)
 print("Generating frame 210-259...")
 for k in range(50):
-    a = k / 49  # t goes from 0 to 1
-    quaternion_7516_8806 = [quaternion_last_7516[i][j] * (1 - a) + quaternion_first_8806[i][j] * a for i in range(24)
-                            for
-                            j in range(4)]
-    quaternion_7516_8806_reshaped = [quaternion_7516_8806[i:i + 4] for i in range(0, len(quaternion_7516_8806), 4)]
-    # Normalize each of the quaternions
-    normalized_quaternions = [q / np.linalg.norm(q) for q in quaternion_7516_8806_reshaped]
-    rotation_mat_7516_8806 = [R.from_quat(q).as_matrix() for q in normalized_quaternions]
-
-    # translation
-    # interpolated_translations = [(1 - a) * translations_last_7516[i] + a * translations_first_8806[i] for i in
-    #                             range(24)]
-    # interpolated_translations_inv = [(1 - a) * translations_last_inv_7516[i] + a * translations_first_inv_8806[i] for i
-    #                                 in range(24)]
-
-    transformation_mat_7516_8806 = [copy.deepcopy(mocap_b1_matrices_7516[159])]
-    transformation_mat_7516_8806_inv = [copy.deepcopy(mocap_b1_matrices_inv_7516[159])]
-    for idx, rotation_mat in enumerate(rotation_mat_7516_8806):
-        transformation_mat_7516_8806[0][idx][:3, :3] = rotation_mat
-        # transformation_mat_7516_8806[0][idx][:3, 3] = interpolated_translations[idx]
-        # transformation_mat_7516_8806_inv[0][idx][:3, 3] = -interpolated_translations[idx]
-    # if k == 0 or k == 49:
-    #     print("k:", k, "\n", transformation_mat_7516_8806[0])
-    #     print("k_inv:", k, "\n", transformation_mat_7516_8806_inv[0])
-    segment_7516_8806 = shape_skin.linear_blended_skinning(0, transformation_mat_7516_8806,
-                                                           transformation_mat_7516_8806_inv, '../output1/frame001.obj')
+    segment_7516_8806 = shape_skin.linear_blended_skinning(k, intpq_7516_8806, intpq_7516_8806_inv,
+                                                              '../output1/frame001.obj')
     tuple_segment_7516_8806 = [(segment_7516_8806[i], segment_7516_8806[i + 1], segment_7516_8806[i + 2]) for i in
                                range(0, len(segment_7516_8806), 3)]
 
@@ -157,20 +155,27 @@ for k in range(80):
 
 # 340-399
 print("Generating frame 340-399...")
+# Similar to 95-144
+vertices_8806_b1_79 = shape_skin.linear_blended_skinning(79, mocap_b1_matrices_8806, mocap_b1_matrices_inv_8806,
+                                                            '../output1/frame001.obj')
+tuple_vertices_8806_b1_79 = [(vertices_8806_b1_79[i], vertices_8806_b1_79[i + 1], vertices_8806_b1_79[i + 2]) for i in
+                                range(0, len(vertices_8806_b1_79), 3)]
+vertices_8806_b2_79 = shape_skin.linear_blended_skinning(79, mocap_b2_matrices_8806, mocap_b2_matrices_inv_8806,
+                                                            '../output1/frame002.obj')
+tuple_vertices_8806_b2_79 = [(vertices_8806_b2_79[i], vertices_8806_b2_79[i + 1], vertices_8806_b2_79[i + 2]) for i in
+                                range(0, len(vertices_8806_b2_79), 3)]
+
 for k in range(50):
     t = k / 49  # t goes from 0 to 1
-    beta_intp2 = (1 - t) * beta1 + t * beta2
-    # animating and skinning using beta_intp1
-    b1b2_8806, b1b2_8806_inv = generate_skel([mocap_b0_matrices_8806[79]],
-                                             [mocap_b0_matrices_inv_8806[79]],
-                                             beta_intp2, quaternion_data_8806, frame_count=1,
-                                             bone_count=24)
-    segment_8806_b1b2 = shape_skin.linear_blended_skinning_intp(0, b1b2_8806, b1b2_8806_inv,
-                                                                beta_intp2)
-    tuple_segment_8806_b1b2 = [(segment_8806_b1b2[i], segment_8806_b1b2[i + 1], segment_8806_b1b2[i + 2]) for i in
-                               range(0, len(segment_8806_b1b2), 3)]
-
-    save_obj('../output6/frame{:03d}.obj'.format(k + 340), tuple_segment_8806_b1b2)
+    vertices_intp2 = []
+    for i in range(len(tuple_vertices_8806_b1_79)):
+        v_temp = [0.0, 0.0, 0.0]
+        for j in range(3):
+            v_temp[j] = (1 - t) * tuple_vertices_8806_b1_79[i][j] + t * tuple_vertices_8806_b2_79[i][j]
+        vertices_intp2.append(v_temp)
+    tuple_vertices_intp2 = [(vertices_intp2[i][0], vertices_intp2[i][1], vertices_intp2[i][2]) for i in
+                            range(0, len(vertices_intp2))]
+    save_obj('../output6/frame{:03d}.obj'.format(k + 340), tuple_vertices_intp2)
 
 # 400-479
 print("Generating frame 400-479...")

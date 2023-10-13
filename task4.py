@@ -266,40 +266,6 @@ class ShapeSkin:
 
         return newPosBuf
 
-    def linear_blended_skinning_intp(self, k, bone_mat, bone_mat_inv, beta):
-        # CPU skinning calculations
-        # Linear Blend Skinning
-
-        global xi_k
-        M_product = []
-        # pos_buf is a numpy array ,size = 3 * vertexCount
-        pos_buf = generate_mesh(base_vertices, delta_blendshapes, beta)
-        newPosBuf = np.zeros(len(pos_buf) * 3)
-
-        for j in range(self.boneCount):
-            Mjk = bone_mat[k][j]
-            Mj0_inv = bone_mat_inv[0][j]
-            M_product.append(np.dot(Mjk, Mj0_inv))
-
-        # Iterate through all related bones
-        for i, vertex in enumerate(pos_buf):
-            x, y, z = vertex
-
-            xi_0 = np.array([x, y, z, 1])
-            xi_k = np.zeros(4)
-
-            J = self.boneIndices[i]
-            w = self.skinningWeights[i]
-
-            for n in range(self.maxInfluences):
-                xi_k += w[n] * np.dot(M_product[J[n]], xi_0)
-
-            # send xi_k to posbuf
-            newPosBuf[i * 3] = xi_k[0]
-            newPosBuf[i * 3 + 1] = xi_k[1]
-            newPosBuf[i * 3 + 2] = xi_k[2]
-
-        return newPosBuf
 
 shape_skin = ShapeSkin()
 shape_skin.load_attachment('smpl_skin.txt')
