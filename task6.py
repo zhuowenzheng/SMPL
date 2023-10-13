@@ -1,8 +1,6 @@
-import copy
-
 from task5 import ShapeSkin, load_skeleton, load_hierarchy, load_quaternions, generate_skel
 from task1 import save_obj
-from scipy.spatial.transform import Rotation as R
+
 import numpy as np
 
 shape_skin = ShapeSkin()
@@ -84,21 +82,6 @@ for k in range(65):
 
     save_obj('../output6/frame{:03d}.obj'.format(k + 145), tuple_segment_7516_b1)
 
-# Once mocap data #7516 finishes, use 50 frames to linearly interpolate the rotations (quaternions) between the last
-# frame of #7516 and the first frame of #8806. 210-259 last frame of #7516
-last_7516 = mocap_b1_matrices_7516[159]
-last_7516_inv = mocap_b1_matrices_inv_7516[159]
-# first frame of #8806
-first_8806 = mocap_b0_matrices_8806[0]
-first_8806_inv = mocap_b0_matrices_inv_8806[0]
-# print("last_7516:\n", [last_7516])
-# print("first_8806:\n", [first_8806])
-# print("last_7516_inv:\n", [mocap_b1_matrices_inv_7516[159]])
-# print("first_8806_inv:\n", [mocap_b0_matrices_inv_8806[0]])
-translations_last_7516 = [mat[:3, 3] for mat in last_7516]
-translations_first_8806 = [mat[:3, 3] for mat in first_8806]
-translations_last_inv_7516 = [mat[:3, 3] for mat in last_7516_inv]
-translations_first_inv_8806 = [mat[:3, 3] for mat in first_8806_inv]
 
 # negating if dot product < 0
 quaternion_last_7516 = quaternion_data_7516[159]  # xyzw
@@ -106,7 +89,7 @@ quaternion_first_8806 = quaternion_data_8806[0]  # xyzw
 
 quaternion_last_7516 = np.array(quaternion_last_7516)
 quaternion_first_8806 = np.array(quaternion_first_8806)
-
+# long-short problem
 for i in range(24):
     dot_product = np.dot(quaternion_last_7516[i], quaternion_first_8806[i])
     if dot_product < 0:
@@ -132,9 +115,12 @@ for k in range(50):
 # rotation_mat_7516_8806 = [R.from_quat(q).as_matrix() for q in normalized_quaternions]
 
 intpq_7516_8806, intpq_7516_8806_inv = load_skeleton('../input/smpl_skel00.txt', quaternions_7516_8806, frame_=50)
+b1_intpq_7516_8806, b1_intpq_7516_8806_inv = generate_skel(intpq_7516_8806, intpq_7516_8806_inv, beta1,
+                                                            quaternions_7516_8806, frame_count=50, bone_count=24, frame_=50)
+
 print("Generating frame 210-259...")
 for k in range(50):
-    segment_7516_8806 = shape_skin.linear_blended_skinning(k, intpq_7516_8806, intpq_7516_8806_inv,
+    segment_7516_8806 = shape_skin.linear_blended_skinning(k, b1_intpq_7516_8806, b1_intpq_7516_8806_inv,
                                                               '../output1/frame001.obj')
     tuple_segment_7516_8806 = [(segment_7516_8806[i], segment_7516_8806[i + 1], segment_7516_8806[i + 2]) for i in
                                range(0, len(segment_7516_8806), 3)]

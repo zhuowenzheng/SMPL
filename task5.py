@@ -22,8 +22,7 @@ def load_quaternions(file_path):
             for _ in range(4):
                 next(file)
             frame_count, bone_count = next(file).strip().split()
-            print("frame count: " + str(frame_count))
-            print("bone count: " + str(bone_count))
+
             for line in file:
                 values = line.strip().split()
                 root_translation = list(map(float, values[:3]))  # Capture root translation values
@@ -134,13 +133,13 @@ def animation(quat_data, hierarchy_map, _bone_matrices, _bone_matrices_inv, fram
         update_matrices(frame, hierarchy_map, _bone_matrices, _bone_matrices_inv, 0)
 
 
-def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, quat_data, frame_count, bone_count):
+def generate_skel(base_bone_matrices, base_bone_matrices_inv, betas, quat_data, frame_count, bone_count, frame_=160):
     # Creating deep copies to ensure the original matrices are not modified
     new_bone_matrices = copy.deepcopy(base_bone_matrices)
     new_bone_matrices_inv = copy.deepcopy(base_bone_matrices_inv)
 
-    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quat_data)[0] for i in range(1, 11)]
-    b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quat_data)[1] for i in range(1, 11)]
+    b_mats = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quat_data, frame_)[0] for i in range(1, 11)]
+    b_mats_inv = [load_skeleton('smpl_skel{:02d}.txt'.format(i), quat_data, frame_)[1] for i in range(1, 11)]
 
     for b in range(10):
         for frame in range(frame_count):

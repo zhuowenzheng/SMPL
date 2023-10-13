@@ -266,20 +266,60 @@ class ShapeSkin:
 
         return newPosBuf
 
+    def linear_blended_skinning_intp(self, k, bone_mat, bone_mat_inv, beta):
+        # CPU skinning calculations
+        # Linear Blend Skinning
 
-shape_skin = ShapeSkin()
-shape_skin.load_attachment('smpl_skin.txt')
+        global xi_k
+        M_product = []
+        # pos_buf is a numpy array ,size = 3 * vertexCount
+        pos_buf = generate_mesh(base_vertices, delta_blendshapes, beta)
+        newPosBuf = np.zeros(len(pos_buf) * 3)
 
-# Compose posBuf into a list of vertices
-vertices_b0 = shape_skin.linear_blended_skinning(0, bone_matrices, bone_matrices_inv, '../output1/frame000.obj')
-vertices_b1 = shape_skin.linear_blended_skinning(0, b1_bone_matrices, b1_bone_matrices_inv, '../output1/frame001.obj')
-vertices_b2 = shape_skin.linear_blended_skinning(0, b2_bone_matrices, b2_bone_matrices_inv, '../output1/frame002.obj')
+        for j in range(self.boneCount):
+            Mjk = bone_mat[k][j]
+            Mj0_inv = bone_mat_inv[0][j]
+            M_product.append(np.dot(Mjk, Mj0_inv))
 
-tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in range(0, len(vertices_b0), 3)]
-tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in range(0, len(vertices_b1), 3)]
-tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in range(0, len(vertices_b2), 3)]
+        # Iterate through all related bones
+        for i, vertex in enumerate(pos_buf):
+            x, y, z = vertex
 
-# Save the original and new meshes
-save_obj('../output4/frame000.obj', tuple_vertices_b0)
-save_obj('../output4/frame001.obj', tuple_vertices_b1)
-save_obj('../output4/frame002.obj', tuple_vertices_b2)
+            xi_0 = np.array([x, y, z, 1])
+            xi_k = np.zeros(4)
+
+            J = self.boneIndices[i]
+            w = self.skinningWeights[i]
+
+            for n in range(self.maxInfluences):
+                xi_k += w[n] * np.dot(M_product[J[n]], xi_0)
+
+            # send xi_k to posbuf
+            newPosBuf[i * 3] = xi_k[0]
+            newPosBuf[i * 3 + 1] = xi_k[1]
+            newPosBuf[i * 3 + 2] = xi_k[2]
+
+        return newPosBuf
+
+if __name__ == "__main__":
+    shape_skin = ShapeSkin()
+    shape_skin.load_attachment('smpl_skin.txt')
+
+    # Compose posBuf into a list of vertices
+    vertices_b0 = shape_skin.linear_blended_skinning(0, bone_matrices, bone_matrices_inv, '../output1/frame000.obj')
+    vertices_b1 = shape_skin.linear_blended_skinning(0, b1_bone_matrices, b1_bone_matrices_inv,
+                                                     '../output1/frame001.obj')
+    vertices_b2 = shape_skin.linear_blended_skinning(0, b2_bone_matrices, b2_bone_matrices_inv,
+                                                     '../output1/frame002.obj')
+
+    tuple_vertices_b0 = [(vertices_b0[i], vertices_b0[i + 1], vertices_b0[i + 2]) for i in
+                         range(0, len(vertices_b0), 3)]
+    tuple_vertices_b1 = [(vertices_b1[i], vertices_b1[i + 1], vertices_b1[i + 2]) for i in
+                         range(0, len(vertices_b1), 3)]
+    tuple_vertices_b2 = [(vertices_b2[i], vertices_b2[i + 1], vertices_b2[i + 2]) for i in
+                         range(0, len(vertices_b2), 3)]
+
+    # Save the original and new meshes
+    save_obj('../output4/frame000.obj', tuple_vertices_b0)
+    save_obj('../output4/frame001.obj', tuple_vertices_b1)
+    save_obj('../output4/frame002.obj', tuple_vertices_b2)
